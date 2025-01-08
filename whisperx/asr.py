@@ -196,6 +196,7 @@ class FasterWhisperPipeline(Pipeline):
         print_progress=False,
         combined_progress=False,
         verbose=False,
+        use_silero_vad=False,
     ) -> TranscriptionResult:
         if isinstance(audio, str):
             audio = load_audio(audio)
@@ -206,14 +207,32 @@ class FasterWhisperPipeline(Pipeline):
                 f2 = int(seg['end'] * SAMPLE_RATE)
                 # print(f2-f1)
                 yield {'inputs': audio[f1:f2]}
+        if use_silero_vad:
+            from silero_vad import load_silero_vad, get_speech_timestamps
 
-        vad_segments = self.vad_model({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": SAMPLE_RATE})
-        vad_segments = merge_chunks(
-            vad_segments,
-            chunk_size,
-            onset=self._vad_params["vad_onset"],
-            offset=self._vad_params["vad_offset"],
-        )
+            model = load_silero_vad()
+            wav = torch.from_numpy(audio)
+            vad_segments = get_speech_timestamps(
+                wav,
+                model,
+                return_seconds=True,
+                min_speech_duration_ms=500,
+                max_speech_duration_s=25,
+                min_silence_duration_ms=1000,
+            )
+        else:
+            vad_segments = self.vad_model(
+                {
+                    "waveform": torch.from_numpy(audio).unsqueeze(0),
+                    "sample_rate": SAMPLE_RATE,
+                }
+            )
+            vad_segments = merge_chunks(
+                vad_segments,
+                chunk_size,
+                onset=self._vad_params["vad_onset"],
+                offset=self._vad_params["vad_offset"],
+            )
         if self.tokenizer is None:
             language = language or self.detect_language(audio)
             task = task or "transcribe"
