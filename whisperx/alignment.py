@@ -111,6 +111,7 @@ def align(
     return_char_alignments: bool = False,
     print_progress: bool = False,
     combined_progress: bool = False,
+    split_sentences: bool = False,
 ) -> AlignedTranscriptionResult:
     """
     Align phoneme recognition predictions to known transcription.
@@ -169,12 +170,13 @@ def align(
             if any([c in model_dictionary.keys() for c in wrd]):
                 clean_wdx.append(wdx)
 
-                
-        punkt_param = PunktParameters()
-        punkt_param.abbrev_types = set(PUNKT_ABBREVIATIONS)
-        sentence_splitter = PunktSentenceTokenizer(punkt_param)
-        sentence_spans = list(sentence_splitter.span_tokenize(text))
-
+        if split_sentences:        
+            punkt_param = PunktParameters()
+            punkt_param.abbrev_types = set(PUNKT_ABBREVIATIONS)
+            sentence_splitter = PunktSentenceTokenizer(punkt_param)
+            sentence_spans = list(sentence_splitter.span_tokenize(text))
+        else:
+            sentence_spans = [(0, len(text))]
         segment["clean_char"] = clean_char
         segment["clean_cdx"] = clean_cdx
         segment["clean_wdx"] = clean_wdx
